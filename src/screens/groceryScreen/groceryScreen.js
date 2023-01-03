@@ -13,13 +13,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 let dummyData = [
   {
-    date: " ",
-    product: " ",
-    price: " ",
+    date: "sss",
+    product: "sss",
+    price: 222,
   },
 ];
 
 const GroceryScreen = ({ navigation }) => {
+  console.log("Screen Rendered");
+
   var date = new Date().getDate();
   var month = new Date().getMonth() + 1;
   var year = new Date().getFullYear();
@@ -27,14 +29,22 @@ const GroceryScreen = ({ navigation }) => {
   console.warn(currentDate);
   const [product, setProduct] = React.useState("");
   const [price, setPrice] = React.useState("");
+  const [copyData, setCopyData] = React.useState(null);
 
-  useEffect(async () => {
+  const getData = async () => {
     try {
       const arrayString = await AsyncStorage.getItem("arrayKey");
       dummyData = JSON.parse(arrayString);
       console.log("Data retrieved", dummyData);
     } catch (error) {
       console.log("Error", error);
+    }
+  };
+  useEffect(() => {
+    if (!dummyData) {
+      return;
+    } else {
+      getData();
     }
   }, []);
 
@@ -101,22 +111,32 @@ const GroceryScreen = ({ navigation }) => {
     );
   };
   const addToList = async () => {
-    dummyData.push({
-      date: currentDate,
-      product: product,
-      price: price,
-    });
+    console.log("Data to be added is: ", currentDate, product, price);
+    if (!product) {
+      Alert.alert("Please Enter Product");
+    } else if (!price) {
+      Alert.alert("Please Enter Price");
+    } else if (dummyData == null) {
+      Alert.alert("DATA IS NULL");
+    } else {
+      dummyData.push({
+        date: currentDate,
+        product: product,
+        price: price,
+      });
+      Alert.alert("Data Added Successfully");
+    }
     try {
       const asyncData = JSON.stringify(dummyData);
 
       await AsyncStorage.setItem("arrayKey", asyncData);
 
-      console.log("data stored", asyncData);
+      console.log("data stored is", asyncData);
+
+      setCopyData(asyncData);
     } catch (error) {
       console.log("Errorrr", error);
     }
-
-    Alert.alert("Success");
   };
   const renderInputContainer = () => {
     return (
