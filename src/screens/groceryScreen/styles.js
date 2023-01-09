@@ -32,7 +32,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  textButtonContainer: { marginTop: 10 },
+  textButtonContainer: {
+    marginTop: 10,
+    flexDirection: "row",
+  },
 });
 
 export default styles;

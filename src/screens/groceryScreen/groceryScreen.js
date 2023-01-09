@@ -6,6 +6,7 @@ import {
   FlatList,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
 } from "react-native";
 import styles from "./styles";
 import { TextButton } from "../../components/textButton";
@@ -13,9 +14,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 let dummyData = [
   {
-    date: "sss",
-    product: "sss",
-    price: 222,
+    date: "",
+    product: "",
+    price: 0,
   },
 ];
 
@@ -26,32 +27,59 @@ const GroceryScreen = ({ navigation }) => {
   var month = new Date().getMonth() + 1;
   var year = new Date().getFullYear();
   const currentDate = `${date}/${month}/${year}`;
-  console.warn(currentDate);
+  // console.warn(currentDate);
+  const [products, setProducts] = React.useState([]);
   const [product, setProduct] = React.useState("");
   const [price, setPrice] = React.useState("");
   const [copyData, setCopyData] = React.useState(null);
+  const [total, setTotal] = React.useState(0);
 
-  const getData = async () => {
-    try {
-      const arrayString = await AsyncStorage.getItem("arrayKey");
-      dummyData = JSON.parse(arrayString);
-      console.log("Data retrieved", dummyData);
-    } catch (error) {
-      console.log("Error", error);
-    }
-  };
-  useEffect(() => {
-    if (!dummyData) {
-      return;
-    } else {
-      getData();
-    }
+  React.useEffect(() => {
+    const getTotal = async () => {
+      try {
+        const storedTotal = await AsyncStorage.getItem("total");
+        setTotal(Number(storedTotal));
+        console.log("Total received from async: ", total);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    getTotal(); // Get the total from async storage
   }, []);
 
+  React.useEffect(() => {
+    const getStoredProducts = async () => {
+      try {
+        const storedProducts =
+          JSON.parse(await AsyncStorage.getItem("products")) || [];
+        setProducts(storedProducts);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    getStoredProducts();
+
+    try {
+      const total = AsyncStorage.getItem("total");
+      console.log("ITEM Get:", total.toString());
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
+  // const getTotal = async () => {
+  //   try {
+  //     const total = await AsyncStorage.getItem("total");
+  //     return total;
+  //   } catch (error) {
+  //     console.error(error);
+  //   }
+  // };
   const renderHeader = () => {
     return (
       <View style={styles.headerStyle}>
-        <Text>Grocery Calculator</Text>
+        <Text>Grocery List</Text>
       </View>
     );
   };
@@ -72,9 +100,8 @@ const GroceryScreen = ({ navigation }) => {
           <Text style={{ fontSize: 16, fontWeight: "bold" }}>PRICE</Text>
         </View>
         <FlatList
-          data={dummyData}
+          data={products}
           style={{ width: "100%", marginTop: 10 }}
-          // key={`item`}
           ListHeaderComponent={() => {
             //View to set in Header
             return (
@@ -89,6 +116,7 @@ const GroceryScreen = ({ navigation }) => {
               ></View>
             );
           }}
+          keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
             return (
               <View
@@ -105,43 +133,57 @@ const GroceryScreen = ({ navigation }) => {
               </View>
             );
           }}
-          keyExtractor={(item) => item.id}
         />
       </View>
     );
   };
+
+  useEffect(() => {
+    console.log("current TOTAL before Set State is: ", total);
+    setTotal(total);
+    console.log("current TOTAL after Set State is: ", total);
+    saveTotal(total);
+  }, [total]);
+  const saveTotal = async (total) => {
+    console.log("Save Total Called");
+    try {
+      await AsyncStorage.setItem("total", total.toString());
+      console.log("Total saved", total);
+    } catch (error) {
+      console.error(error);
+    }
+  };
   const addToList = async () => {
-    console.log("Data to be added is: ", currentDate, product, price);
+    // console.log("Data to be added is: ", currentDate, product, price);
+    const newProduct = { date: currentDate, product: product, price: price };
     if (!product) {
       Alert.alert("Please Enter Product");
     } else if (!price) {
       Alert.alert("Please Enter Price");
-    } else if (dummyData == null) {
-      Alert.alert("DATA IS NULL");
     } else {
-      dummyData.push({
-        date: currentDate,
-        product: product,
-        price: price,
-      });
-      Alert.alert("Data Added Successfully");
-    }
-    try {
-      const asyncData = JSON.stringify(dummyData);
+      setProducts([...products, newProduct]);
+      setProduct("");
+      setPrice("");
 
-      await AsyncStorage.setItem("arrayKey", asyncData);
+      const intPrice = parseInt(price, 10);
 
-      console.log("data stored is", asyncData);
+      setTotal((prevTotal) => prevTotal + intPrice);
+      console.log("Current Total is: ", total);
 
-      setCopyData(asyncData);
-    } catch (error) {
-      console.log("Errorrr", error);
+      try {
+        const storedProducts =
+          JSON.parse(await AsyncStorage.getItem("products")) || [];
+        storedProducts.push(newProduct);
+        await AsyncStorage.setItem("products", JSON.stringify(storedProducts));
+      } catch (error) {
+        console.error(error);
+      }
     }
   };
   const renderInputContainer = () => {
     return (
-      <View style={styles.inputContainerStyle}>
-        <Text style={{ fontSize: 18 }}>Total Grocery Till Now: </Text>
+      <SafeAreaView style={styles.inputContainerStyle}>
+        <Text style={{ fontSize: 18 }}>Total Grocery Till Now: {total}</Text>
         <View
           style={{
             flexDirection: "row",
@@ -171,9 +213,13 @@ const GroceryScreen = ({ navigation }) => {
               paddingHorizontal: 10,
               marginVertical: 20,
             }}
-            onChangeText={setPrice}
+            onChange={(event) => {
+              const newText = event.nativeEvent.text.replace(/[^0-9]/g, "");
+              setPrice(newText);
+            }}
             value={price}
             placeholder="Price"
+            keyboardType="numeric"
           />
         </View>
 
@@ -183,7 +229,7 @@ const GroceryScreen = ({ navigation }) => {
             onPress={() => addToList()}
           ></TextButton>
         </View>
-      </View>
+      </SafeAreaView>
     );
   };
   return (

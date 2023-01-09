@@ -6,6 +6,7 @@ import {
   FlatList,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
 } from "react-native";
 import styles from "./styles";
 import { TextButton } from "../../components/textButton";
@@ -13,56 +14,76 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 let dummyData = [
   {
-    date: " ",
-    product: " ",
-    price: " ",
+    date: "",
+    product: "",
+    price: 0,
   },
 ];
+
 const DairyScreen = ({ navigation }) => {
-  const [product, setProduct] = React.useState("");
-  const [price, setPrice] = React.useState("");
+  console.log("Screen Rendered");
+
   var date = new Date().getDate();
   var month = new Date().getMonth() + 1;
   var year = new Date().getFullYear();
   const currentDate = `${date}/${month}/${year}`;
-  console.warn(currentDate);
+  // console.warn(currentDate);
+  const [products, setProducts] = React.useState([]);
+  const [product, setProduct] = React.useState("");
+  const [price, setPrice] = React.useState("");
+  const [copyData, setCopyData] = React.useState(null);
+  const [total, setTotal] = React.useState(0);
 
-  useEffect(async () => {
+  React.useEffect(() => {
+    const getTotal = async () => {
+      try {
+        const storedTotal = await AsyncStorage.getItem("totalDairy");
+        setTotal(Number(storedTotal));
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    getTotal(); // Get the total from async storage
+  }, []);
+
+  React.useEffect(() => {
+    const getStoredProducts = async () => {
+      try {
+        const storedProducts =
+          JSON.parse(await AsyncStorage.getItem("productsDairy")) || [];
+        setProducts(storedProducts);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    getStoredProducts();
+
     try {
-      const arrayString = await AsyncStorage.getItem("DairyArrayKey");
-      dummyData = JSON.parse(arrayString);
-      console.log("Dairy Data retrieved", dummyData);
+      const total = AsyncStorage.getItem("totalDairy");
+      console.log("ITEM Get:", total.toString());
     } catch (error) {
-      console.log("Error", error);
+      console.error(error);
     }
   }, []);
-  const addToList = async () => {
-    try {
-      dummyData.push({
-        date: currentDate,
-        product: product,
-        price: price,
-      });
-      const asyncData = JSON.stringify(dummyData);
-
-      await AsyncStorage.setItem("DairyArrayKey", asyncData);
-
-      console.log("dairy data stored", asyncData);
-    } catch (error) {
-      console.log("Error", error);
-    }
-
-    Alert.alert("Success");
-  };
+  // const getTotal = async () => {
+  //   try {
+  //     const total = await AsyncStorage.getItem("total");
+  //     return total;
+  //   } catch (error) {
+  //     console.error(error);
+  //   }
+  // };
   const renderHeader = () => {
     return (
       <View style={styles.headerStyle}>
-        <Text>Dairy Calculator</Text>
+        <Text>Dairy List</Text>
       </View>
     );
   };
 
-  const renderDairyList = () => {
+  const renderGroceryList = () => {
     return (
       <View style={styles.groceryListContainer}>
         <View
@@ -78,8 +99,9 @@ const DairyScreen = ({ navigation }) => {
           <Text style={{ fontSize: 16, fontWeight: "bold" }}>PRICE</Text>
         </View>
         <FlatList
-          data={dummyData}
+          data={products}
           style={{ width: "100%", marginTop: 10 }}
+          // key={`item`}
           ListHeaderComponent={() => {
             //View to set in Header
             return (
@@ -115,10 +137,54 @@ const DairyScreen = ({ navigation }) => {
       </View>
     );
   };
+  useEffect(() => {
+    console.log("current TOTAL before Set State is: ", total);
+    setTotal(total);
+    console.log("current TOTAL after Set State is: ", total);
+    saveTotal(total);
+  }, [total]);
+  const saveTotal = async (total) => {
+    console.log("Save Total Called");
+    try {
+      await AsyncStorage.setItem("totalDairy", total.toString());
+      console.log("Total saved", total);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  const addToList = async () => {
+    // console.log("Data to be added is: ", currentDate, product, price);
+    const newProduct = { date: currentDate, product: product, price: price };
+    if (!product) {
+      Alert.alert("Please Enter Product");
+    } else if (!price) {
+      Alert.alert("Please Enter Price");
+    } else {
+      setProducts([...products, newProduct]);
+      setProduct("");
+      setPrice("");
+
+      const intPrice = parseInt(price, 10);
+
+      setTotal((prevTotal) => prevTotal + intPrice);
+
+      try {
+        const storedProducts =
+          JSON.parse(await AsyncStorage.getItem("productsDairy")) || [];
+        storedProducts.push(newProduct);
+        await AsyncStorage.setItem(
+          "productsDairy",
+          JSON.stringify(storedProducts)
+        );
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  };
   const renderInputContainer = () => {
     return (
-      <View style={styles.inputContainerStyle}>
-        <Text style={{ fontSize: 18 }}>Total Dairy Till Now: </Text>
+      <SafeAreaView style={styles.inputContainerStyle}>
+        <Text style={{ fontSize: 18 }}>Total Dairy Till Now: {total}</Text>
         <View
           style={{
             flexDirection: "row",
@@ -148,9 +214,13 @@ const DairyScreen = ({ navigation }) => {
               paddingHorizontal: 10,
               marginVertical: 20,
             }}
-            onChangeText={setPrice}
+            onChange={(event) => {
+              const newText = event.nativeEvent.text.replace(/[^0-9]/g, "");
+              setPrice(newText);
+            }}
             value={price}
             placeholder="Price"
+            keyboardType="numeric"
           />
         </View>
 
@@ -160,7 +230,7 @@ const DairyScreen = ({ navigation }) => {
             onPress={() => addToList()}
           ></TextButton>
         </View>
-      </View>
+      </SafeAreaView>
     );
   };
   return (
@@ -168,7 +238,7 @@ const DairyScreen = ({ navigation }) => {
       {/* Header */}
       {renderHeader()}
       {/* Grocery FlatList */}
-      {renderDairyList()}
+      {renderGroceryList()}
       {/* Input Container */}
       {renderInputContainer()}
     </SafeAreaView>
