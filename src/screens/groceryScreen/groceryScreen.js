@@ -7,10 +7,12 @@ import {
   TextInput,
   Alert,
   KeyboardAvoidingView,
+  Pressable,
 } from "react-native";
 import styles from "./styles";
 import { TextButton } from "../../components/textButton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Document, Page } from "react-native-pdf";
 
 let dummyData = [
   {
@@ -100,7 +102,7 @@ const GroceryScreen = ({ navigation }) => {
           <Text style={{ fontSize: 16, fontWeight: "bold" }}>PRICE</Text>
         </View>
         <FlatList
-          data={products}
+          data={products[0]}
           style={{ width: "100%", marginTop: 10 }}
           ListHeaderComponent={() => {
             //View to set in Header
@@ -119,18 +121,35 @@ const GroceryScreen = ({ navigation }) => {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
             return (
-              <View
+              <Pressable
                 style={{
                   flexDirection: "row",
                   justifyContent: "space-around",
                   alignItems: "center",
                   paddingBottom: 5,
                 }}
+                onLongPress={() =>
+                  Alert.alert(
+                    "Delete?",
+                    `${item.product}-${item.price}-${item.id}`,
+                    [
+                      {
+                        text: "Cancel",
+
+                        style: "destructive",
+                      },
+                      {
+                        text: "OK",
+                        onPress: () => console.warn("S"),
+                      },
+                    ]
+                  )
+                }
               >
                 <Text>{item.date}</Text>
                 <Text>{item.product}</Text>
                 <Text>{item.price}</Text>
-              </View>
+              </Pressable>
             );
           }}
         />
@@ -152,6 +171,17 @@ const GroceryScreen = ({ navigation }) => {
     } catch (error) {
       console.error(error);
     }
+  };
+  const makePDF = () => {
+    return (
+      <Document>
+        <Page>
+          {products.map((item) => (
+            <Text>{`Date: ${item.date} Product: ${item.product} Price: ${item.price}`}</Text>
+          ))}
+        </Page>
+      </Document>
+    );
   };
   const addToList = async () => {
     // console.log("Data to be added is: ", currentDate, product, price);
@@ -179,6 +209,8 @@ const GroceryScreen = ({ navigation }) => {
         console.error(error);
       }
     }
+
+    makePDF();
   };
   const renderInputContainer = () => {
     return (
